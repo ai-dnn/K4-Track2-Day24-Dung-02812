@@ -1,10 +1,14 @@
-# Compliance mapping — điền trong checkpoint 5
+# Compliance mapping
 
-| Nguồn / yêu cầu | Control đã làm | Evidence file:dòng | Giới hạn |
+Đối chiếu nguồn chính thức ngày 13/10/2026. Bảng liên hệ control kỹ thuật với chủ đề quản trị; không khẳng định đạt tuân thủ pháp luật. Số hiệu/tên văn bản đã kiểm từ nguồn Chính phủ. Điều khoản pháp lý cụ thể **chưa xác minh**: PDF gốc Luật 91 timeout, PDF NĐ 356 và Luật AI 134 không có text trích xuất trong lượt kiểm; không suy ra nghĩa vụ cụ thể từ metadata.
+
+| Nguồn / chủ đề | Control đã làm | Evidence file:dòng | Giới hạn |
 |---|---|---|---|
-| Luật 91/2025/QH15 | | | |
-| NĐ 356/2025/NĐ-CP | | | |
-| Luật AI 134/2025/QH15 | | | |
-| OWASP ASI01, ASI03, ASI04 | | | |
+| [Luật 91/2025/QH15 — Bảo vệ dữ liệu cá nhân](https://vanban.chinhphu.vn/?classid=1&docid=214590&pageid=27160&typegroup=) | PII gate, giới hạn đọc theo principal/mục đích, deny egress restricted | `agent/pii.py:44`, `agent/policy.py:58`, `agent/policy.py:75`, `reports/ledger.jsonl:45` | Liên hệ kỹ thuật do người làm bài đề xuất; điều khoản chưa xác minh; regex không bao phủ toàn bộ dữ liệu cá nhân và không phải căn cứ xử lý hợp pháp. |
+| [NĐ 356/2025/NĐ-CP — hướng dẫn Luật Bảo vệ dữ liệu cá nhân](https://vanban.chinhphu.vn/?docid=216387&pageid=27160&typegroupid=4) | Ghi bằng chứng allow/deny có reason và hash, DPIA-lite mô tả luồng dữ liệu | `agent/runner.py:95`, `agent/ledger.py:66`, `reports/dpia-lite.md:5` | Điều khoản chưa xác minh; ledger/DPIA-lite trong lab chưa đáp ứng hồ sơ pháp lý, quyền chủ thể, retention hoặc quy trình production. |
+| [Luật AI 134/2025/QH15 — Trí tuệ nhân tạo](https://congbao.chinhphu.vn/van-ban/luat-so-134-2025-qh15-468694/61695.htm) | Tách logic run, TTL, nhận diện agent/principal và đánh giá giới hạn mock | `agent/runner.py:82`, `agent/runner.py:113`, `reports/dpia-lite.md:8` | Điều khoản chưa xác minh; chưa xác định phân loại rủi ro pháp lý của hệ thống, chưa kiểm model thật; hai run cùng process. |
+| [OWASP ASI01 — Agent Goal Hijack](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) | Không chuyển chỉ thị corpus sang private run; chỉ nhận ID từ filename, dùng mapping tin cậy | `agent/runner.py:113`, `agent/runner.py:120`, `tests/test_split.py:87`, `reports/replay-after.json:1` | KH-000999 vẫn gắn với ticket lure; split không tự ngăn đọc hợp lệ, cần PEP egress; tên file cũng là đầu vào cần được ràng buộc production. |
+| OWASP ASI03 — Identity & Privilege Abuse (cùng nguồn OWASP) | Giao scope principal/agent/parent, purpose, TTL trước tool execution | `agent/policy.py:64`, `agent/policy.py:78`, `agent/runner.py:126`, `reports/ledger.jsonl:2`, `reports/ledger.jsonl:24` | `--as` chỉ chọn fixture, không xác thực người dùng thật; quyền do local code thực thi. |
+| OWASP ASI04 — Agentic Supply Chain Vulnerabilities (cùng nguồn OWASP) | Lock pin + SHA256, hook Gitleaks pin v8.30.1, quét lịch sử riêng | `requirements.lock:7`, `.pre-commit-config.yaml:3`, `reports/gitleaks-history.json:3`, `reports/secrets-incident.md:5` | Hash/pin không chứng minh dependency an toàn; scanner không rotate secret đã lộ; finding là token giả. |
 
-Chỉ ghi điều khoản cụ thể khi đã đối chiếu văn bản gốc. Mô phỏng kỹ thuật không tự chứng minh tuân thủ pháp luật.
+Tên ASI01/03/04 được đối chiếu tài liệu OWASP tại [crosswalk chính thức](https://genai.owasp.org/download/54627/?tmstv=1779726713) và [tài liệu OWASP LA](https://owaspla.owasp.org/assets/prez/OWASPLA_prez_2026_01.pdf). Đây là mapping rủi ro bảo mật, không phải chứng nhận tuân thủ luật Việt Nam.

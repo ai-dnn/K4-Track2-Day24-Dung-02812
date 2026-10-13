@@ -1,0 +1,50 @@
+[
+  {
+    "variant": 1,
+    "principal": "support_l1",
+    "sink_requests": 0,
+    "evidence": "attack-after-variant-1-support_l1.log"
+  },
+  {
+    "variant": 1,
+    "principal": "dpo",
+    "sink_requests": 0,
+    "evidence": "attack-after-variant-1-dpo.log"
+  },
+  {
+    "variant": 2,
+    "principal": "support_l1",
+    "sink_requests": 0,
+    "evidence": "attack-after-variant-2-support_l1.log"
+  },
+  {
+    "variant": 2,
+    "principal": "dpo",
+    "sink_requests": 0,
+    "evidence": "attack-after-variant-2-dpo.log"
+  },
+  {
+    "variant": 3,
+    "principal": "support_l1",
+    "sink_requests": 0,
+    "evidence": "attack-after-variant-3-support_l1.log"
+  },
+  {
+    "variant": 3,
+    "principal": "dpo",
+    "sink_requests": 0,
+    "evidence": "attack-after-variant-3-dpo.log"
+  },
+  {
+    "variant": 4,
+    "principal": "support_l1",
+    "sink_requests": 0,
+    "evidence": "attack-after-variant-4-support_l1.log"
+  },
+  {
+    "variant": 4,
+    "principal": "dpo",
+    "sink_requests": 0,
+    "evidence": "attack-after-variant-4-dpo.log"
+  }
+]

@@ -30,10 +30,30 @@ set ở tests/vn_pii_testset.jsonl):
 """
 from __future__ import annotations
 
+import re
+
+# Contextual bank recognition takes precedence over ambiguous digit lengths.
+_BANK = re.compile(r"(?:\bSTK\b|số tài khoản|so tai khoan|bank_account)[\s:='\"]*(?P<value>[0-9]{8,16})(?![0-9])", re.I)
+_PATTERNS = (
+    ("EMAIL", re.compile(r"(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+")),
+    ("VN_CCCD", re.compile(r"(?<![0-9])[0-9]{12}(?![0-9])")),
+    ("VN_PHONE", re.compile(r"(?<![0-9])(?:0(?:[ -]?[0-9]){9,10}|\+84(?:[ -]?[0-9]){9})(?![ -]?[0-9])")),
+)
+
 
 def detect(text: str) -> list[dict]:
-    raise NotImplementedError("BƯỚC 3a: implement PII detection")
+    entities = [{"type": "VN_BANK_ACCOUNT", "start": m.start("value"),
+                 "end": m.end("value")} for m in _BANK.finditer(text)]
+    for kind, pattern in _PATTERNS:
+        for match in pattern.finditer(text):
+            start, end = match.span()
+            if not any(start < e["end"] and end > e["start"] for e in entities):
+                entities.append({"type": kind, "start": start, "end": end})
+    return sorted(entities, key=lambda e: e["start"])
 
 
 def redact(text: str) -> str:
-    raise NotImplementedError("BƯỚC 3a: implement PII redaction")
+    for entity in reversed(detect(text)):
+        text = (text[:entity["start"]] + f"[REDACTED_{entity['type']}]"
+                + text[entity["end"]:])
+    return text

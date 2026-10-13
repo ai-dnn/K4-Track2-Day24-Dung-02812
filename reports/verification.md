@@ -1,7 +1,16 @@
-# Verification — điền trước khi nộp
+# Verification — 13/10/2026
 
-- OS / Python / Gitleaks version:
-- `python -m pytest tests/ -q`:
-- `pre-commit run --all-files`:
-- Ledger verify:
-- Các lỗi còn lại:
+- OS: macOS 26.5.2 arm64; Python 3.14.5 trong `.venv`; Gitleaks **8.30.1**; pytest 9.1.1; requests 2.34.2; pre-commit 4.7.0; pip-tools 7.6.2.
+- `.venv/bin/python -m pytest tests/ -q`: **33 passed**, 0 failed, 0 skipped (0.55s). Test bắt buộc không bị sửa. OBO, scope/TTL, utility/split, ledger, supply-chain và 4 lure × 2 principal đều pass.
+- `.venv/bin/python -m pytest tests/test_pii.py -q -s`: **2 passed**, gold=118, pred=118, TP=118; **precision=1.000, recall=1.000** trên 120 ví dụ synthetic. Đây là metric test set, không phải bảo đảm cho dữ liệu ngoài tập.
+- `.venv/bin/python -m agent.check_lure 'corpus/ticket-90*.md'`: **4/4 sẵn sàng**. File 904 và 904b được kiểm chung; mỗi file riêng chỉ có một marker.
+- `.venv/bin/python -m piptools compile --generate-hashes -o requirements.lock requirements.txt`: thành công; toàn bộ 10 package pin exact version và SHA256. `.venv/bin/python -m pip install --require-hashes --force-reinstall -r requirements.lock`: exit 0, tải và kiểm hash các artifact rồi cài lại. `pip check`: không có dependency hỏng.
+- `PATH="$PWD/.venv/tools:$PWD/.venv/bin:$PATH" PRE_COMMIT_HOME=/tmp/lab24-pre-commit .venv/bin/pre-commit run --all-files`: **Detect hardcoded secrets — Passed**, exit 0. Hook pin official `v8.30.1`, dùng system binary, scan thư mục hiện tại với redaction.
+- `gitleaks git --config .gitleaks.toml --redact --verbose ... .`: **1 finding synthetic dự kiến**, rule `lab24-synthetic-token`, commit `1bdd849`; scanner history exit 1 là đúng. `gitleaks dir --config .gitleaks.toml --redact ... .`: **0 finding**, exit 0. Bằng chứng JSON redacted: `gitleaks-history.json` và `gitleaks-current.json`.
+- Before: capture khi runner còn scaffold, `attack-before.log` có **1 POST synthetic** của KH-000999. Replay reference gốc từng biến thể qua `python -m scripts.replay_evidence before`: **1 POST/biến thể**, xem `replay-before.json` và log từng biến thể. CLI hoàn thiện không dùng baseline khi runner lỗi.
+- After: chạy pytest trước, rồi `python -m scripts.replay_evidence after`, reset sink riêng trước từng replay và trước aggregate query gốc với dpo; **0 POST** trong cả 8 replay; `attack-after.log` **0 byte**. Không dùng sink log bị pytest reset làm evidence.
+- Ledger: **203 dòng**, verify(`reports/ledger.jsonl`) = **True**; mọi dòng có reason, on_behalf_of, agent_id, UUID run_id, expires_at, args_hash. Bản sao tạm sửa `tool` ở dòng 2 mà giữ nguyên hash: verify = **False**. Bản gốc được giữ nguyên. Dòng 45/90/135/180/203 deny http_post cho dpo vì restricted + egress.
+
+**Lỗi môi trường đã gặp và xử lý:** sandbox ban đầu chặn bind localhost (`PermissionError: Operation not permitted`), truy cập PyPI/GitHub (`Could not resolve host`) và cache pip-tools ngoài workspace. Chạy lại các lệnh cần network/local server với quyền được cấp đã thành công; dùng cache pre-commit ở `/tmp`. Lượt test đầu tiên trước khi điền incident report là 32 pass/1 fail do report scaffold, lượt hoàn thiện 33 pass. Không có lỗi code/test còn lại.
+
+**Giới hạn còn lại:** điều khoản pháp luật cụ thể chưa xác minh (nguồn/tình trạng trong compliance mapping); không khẳng định tuân thủ pháp lý. Không làm bonus, không dùng model thật. CLI principal chỉ là mô phỏng, run split cùng process và ledger chưa có external anchor hoặc multiwriter lock. Commit và push được thực hiện theo yêu cầu của người sở hữu; SHA nộp lấy từ `git rev-parse HEAD` sau commit và được báo trong kết quả bàn giao. Các command Python trong báo cáo dùng `.venv/bin/python`; thêm `.venv/tools` vào PATH để hook tìm đúng Gitleaks.

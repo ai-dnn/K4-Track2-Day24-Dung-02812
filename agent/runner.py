@@ -60,6 +60,13 @@ Interface bắt buộc (agent/loop.py import và gọi hàm này nếu tồn t�
 from __future__ import annotations
 
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
+import hashlib
+import json
+import re
+from uuid import uuid4
+
+from agent import ledger, pii, policy, tools
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent / "reports"
 DEFAULT_LEDGER_PATH = REPORTS_DIR / "ledger.jsonl"
@@ -71,4 +78,62 @@ class RunnerScaffoldPending(NotImplementedError):
 
 def handle(message: str, llm, log_dir: Path | None = None,
            principal_id: str = "support_l1") -> str:
-    raise RunnerScaffoldPending("BƯỚC 3c: implement trifecta split")
+    path = (Path(log_dir) if log_dir is not None else REPORTS_DIR) / "ledger.jsonl"
+    expiry = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+    parent_scopes = ("search_docs", "read_customer")
+    run_a = str(uuid4())
+    run_b = str(uuid4())
+
+    def authorized(tool, args, classification, purpose, run_id, scopes,
+                   *, depth=0, egress=False):
+        agent_id = "lab24-agent/run-a" if run_id == run_a else "lab24-agent/run-b"
+        allowed, reason = policy.check(policy.PolicyContext(
+            data_classification=classification, request_purpose=purpose,
+            agent_owner=agent_id, delegation_depth=depth, egress_enabled=egress,
+            principal_id=principal_id, requested_tool=tool, agent_scopes=scopes,
+            parent_scopes=parent_scopes if depth else (), expires_at=expiry))
+        ledger.append({
+            "ts": datetime.now(timezone.utc).isoformat(), "agent_id": agent_id,
+            "run_id": run_id, "on_behalf_of": principal_id, "expires_at": expiry,
+            "tool": tool, "args_hash": hashlib.sha256(json.dumps(
+                args, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest(),
+            "classification": classification, "decision": "allow" if allowed else "deny",
+            "reason": reason,
+        }, path)
+        return allowed
+
+    # Run A has neither private-store nor network capabilities.
+    if not authorized("search_docs", {"query": message}, "internal", "summarize-tickets",
+                      run_a, ("search_docs",)):
+        return "Yêu cầu bị từ chối bởi policy."
+    docs = tools.search_docs(message)
+    sanitized = [{"id": d["id"], "text": pii.redact(d["text"])} for d in docs]
+    # Inspection is diagnostic only: neither attacker IDs nor URLs are trusted.
+    llm.find_injection("\n\n".join(d["text"] for d in sanitized))
+    ticket_ids = sorted({int(m.group(1)) for d in sanitized
+                         if (m := re.fullmatch(r"ticket-([0-9]+)[a-z]?\.md", d["id"]))})
+
+    def private_run(ids: list[int]):
+        # The only Run A input is the typed filename-derived ID list.
+        if any(type(ticket) is not int or ticket < 0 for ticket in ids):
+            raise ValueError("invalid ticket boundary")
+        customers = json.loads(tools.CUSTOMERS_FILE.read_text(encoding="utf-8"))
+        related_ids = {c["customer_id"] for c in customers
+                       if set(ids).intersection(c.get("related_tickets", []))}
+        records = []
+        for customer_id in sorted(related_ids):
+            args = {"customer_id": customer_id}
+            if authorized("read_customer", args, "restricted", "support-reply", run_b,
+                          ("read_customer",), depth=1):
+                records.append(tools.read_customer(customer_id))
+        if records:
+            # A fixed local proposal demonstrates the egress PEP independently
+            # of injection detection; raw document text never reaches this run.
+            url = "http://127.0.0.1:10024/reconcile"
+            body = {"records": records}
+            if authorized("http_post", {"url": url, "body": body}, "restricted",
+                          "support-reply", run_b, ("read_customer",), depth=1, egress=True):
+                tools.http_post(url, body)
+
+    private_run(ticket_ids)
+    return llm.summarize(sanitized)

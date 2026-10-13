@@ -1,6 +1,8 @@
-# DPIA-lite — điền trong checkpoint 5
+# DPIA-lite
 
-1. Loại dữ liệu và phân loại:
-2. Mục đích xử lý và principal:
-3. Dữ liệu đi qua những run/tool nào, endpoint nào:
-4. Bằng chứng deny/allow và giới hạn của mock:
+1. **Dữ liệu:** toàn bộ tên, email, SĐT, CCCD, STK và ticket là dữ liệu tổng hợp do đề bài sinh; bản ghi khách hàng được phân loại `restricted`, corpus là nội dung không tin cậy và được xử lý bằng PII gate trước khi tóm tắt. Regex nhận diện CCCD/SĐT/STK/email; không bảo đảm nhận diện tên người hoặc mọi cách mã hoá PII.
+2. **Mục đích:** `summarize-tickets` cho tìm/tóm tắt ticket, `support-reply` cho đọc hồ sơ gắn với ticket. Principal giả lập nằm trong `data/principals.json`: `support_l1` tìm ticket nhưng bị deny đọc hồ sơ, `dpo` được đọc hồ sơ hợp lệ. Quyền hiệu lực là giao principal/agent/parent, TTL 5 phút, hai run có UUID riêng. Billing không có purpose `support-reply` nên read bị deny.
+3. **Luồng:** Run A → `search_docs` → redact → tóm tắt trong Run A; chỉ `list[int]` lấy từ tên file đi sang Run B. Run B map ID qua `related_tickets` trong fixture tin cậy rồi kiểm policy ngay trước từng `read_customer`. Không đưa private record vào LLM. Đề xuất egress cố định tới `http://127.0.0.1:10024/reconcile` luôn bị PEP deny vì restricted + egress, không dùng URL/ID của attacker. Không có POST thật sau containment. Không cần API key và không dùng model thật.
+4. **Bằng chứng:** `reports/attack-before.log:1` có leak synthetic; `reports/attack-after.log` rỗng sau reset/replay độc lập với pytest. Ledger dòng 1 allow search cho support, dòng 2 deny read cho support, dòng 24 allow read cho dpo, dòng 45 deny egress cho dpo; toàn bộ 203 dòng có reason, principal, UUID, TTL, args hash và chain verify. `reports/replay-after.json` ghi 4 biến thể × 2 principal đều có 0 request. Test split chứng minh không gọi `read_customer(KH-000777)` từ free text nhưng vẫn đọc khách hợp lệ.
+
+**Rủi ro và giới hạn:** đây là mô phỏng logic trong một process, không phải sandbox OS hoặc authentication production; fixture mapping đọc từ cùng JSON chứa records nên production cần metadata index và private-store service tách quyền. Corpus vẫn có tên synthetic và regex có giới hạn ngoài test set. Ledger không chứa args/PII thô nhưng hash không phải mã hoá và có thể dò với đầu vào dễ đoán. Chain phát hiện sửa dòng/xoá giữa file; không phát hiện cắt đuôi/viết lại toàn bộ nếu thiếu mốc tin cậy ngoài file, và chưa hỗ trợ nhiều writer đồng thời. Các log trước containment chứa synthetic PII để chứng minh bài lab, lưu cục bộ cùng repo; chưa triển khai retention/delete cascade, quyền chủ thể, xử lý sự cố production hoặc đánh giá pháp lý đầy đủ. Không coi DPIA-lite này là hồ sơ đánh giá tác động theo luật.

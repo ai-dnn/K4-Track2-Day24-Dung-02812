@@ -1,0 +1,26 @@
+[
+  {
+    "variant": 1,
+    "principal": "support_l1",
+    "sink_requests": 1,
+    "evidence": "attack-before-variant-1-support_l1.log"
+  },
+  {
+    "variant": 2,
+    "principal": "support_l1",
+    "sink_requests": 1,
+    "evidence": "attack-before-variant-2-support_l1.log"
+  },
+  {
+    "variant": 3,
+    "principal": "support_l1",
+    "sink_requests": 1,
+    "evidence": "attack-before-variant-3-support_l1.log"
+  },
+  {
+    "variant": 4,
+    "principal": "support_l1",
+    "sink_requests": 1,
+    "evidence": "attack-before-variant-4-support_l1.log"
+  }
+]
